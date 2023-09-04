@@ -25,7 +25,7 @@ use http::{
 use log::{debug, warn};
 use octocrab::Octocrab;
 use regex::RegexSet;
-use reqwest::{header, redirect, Url};
+use reqwest::{header, redirect, tls, Url};
 use reqwest_cookie_store::CookieStoreMutex;
 use secrecy::{ExposeSecret, SecretString};
 use typed_builder::TypedBuilder;
@@ -195,6 +195,9 @@ pub struct ClientBuilder {
     #[builder(default = DEFAULT_MAX_RETRIES)]
     max_retries: u64,
 
+    /// Minimum accepted TLS version.
+    min_tls_version: Option<tls::Version>,
+
     /// User-agent used for checking links.
     ///
     /// Defaults to [`DEFAULT_USER_AGENT`].
@@ -341,6 +344,9 @@ impl ClientBuilder {
 
         if let Some(cookie_jar) = self.cookie_jar {
             builder = builder.cookie_provider(cookie_jar);
+        }
+        if let Some(min_tls) = self.min_tls_version {
+            builder = builder.min_tls_version(min_tls);
         }
 
         let reqwest_client = match self.timeout {

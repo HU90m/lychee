@@ -2,12 +2,14 @@ use crate::archive::Archive;
 use crate::parse::{parse_base, parse_statuscodes};
 use crate::verbosity::Verbosity;
 use anyhow::{anyhow, Context, Error, Result};
-use clap::{arg, builder::TypedValueParser, Parser};
+use clap::{arg, Parser, builder::{TypedValueParser, PossibleValuesParser}};
+
 use const_format::{concatcp, formatcp};
 use lychee_lib::{
     Base, BasicAuthSelector, Input, DEFAULT_MAX_REDIRECTS, DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_WAIT_TIME_SECS, DEFAULT_TIMEOUT_SECS, DEFAULT_USER_AGENT,
 };
+use reqwest::tls;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use std::path::Path;
@@ -43,6 +45,22 @@ const HELP_MSG_CONFIG_FILE: &str = formatcp!(
 );
 const TIMEOUT_STR: &str = concatcp!(DEFAULT_TIMEOUT_SECS);
 const RETRY_WAIT_TIME_STR: &str = concatcp!(DEFAULT_RETRY_WAIT_TIME_SECS);
+
+const TLS_VERSIONS: [&'static str; 4] = [
+    "TLSv1_0",
+    "TLSv1_1",
+    "TLSv1_2",
+    "TLSv1_3",
+];
+fn tls_from_str(ver: impl AsRef<str>) -> Option<tls::Version> {
+    match ver.as_ref() {
+        "TLSv1_0" => Some(tls::Version::TLS_1_0),
+        "TLSv1_1" => Some(tls::Version::TLS_1_1),
+        "TLSv1_2" => Some(tls::Version::TLS_1_2),
+        "TLSv1_3" => Some(tls::Version::TLS_1_3),
+        _ => None,
+    }
+}
 
 #[derive(Debug, Deserialize, Default, Clone)]
 pub(crate) enum Format {
@@ -208,6 +226,17 @@ pub(crate) struct Config {
     #[arg(long, default_value = &MAX_RETRIES_STR)]
     #[serde(default = "max_retries")]
     pub(crate) max_retries: u64,
+
+    // Minimum TLS Version
+    #[arg(
+        long,
+        default_value = "TLSv1_0",
+        value_parser=PossibleValuesParser::new(TLS_VERSIONS).map(tls_from_str),
+    )]
+    #[serde(
+        skip,
+    )]
+    pub(crate) min_tls: tls::Version,
 
     /// Maximum number of concurrent network requests
     #[arg(long, default_value = &MAX_CONCURRENCY_STR)]
